@@ -1,44 +1,38 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
 
-const url = process.env.MONGODB_URL;
+const uri = process.env.MONGODB_URI;
 
 (async () => {
   try {
-    await mongoose.connect(url);
+    await mongoose.connect(uri);
     console.log("connected");
   } catch (err) {
     console.log(`There is an error ${err.message}`);
   }
 })();
 
-// mongoose
-//   .connect(url)
-//   .then((res) => {
-//     console.log("connected");
-//   })
-//   .catch((err) => {
-//     console.log(`There is an error ${err.message}`);
-//   });
-
-const userSchema = new mongoose.Schema({
-  fullname: {
-    type: String,
-    required: true,
+const userSchema = new mongoose.Schema(
+  {
+    fullname: {
+      type: String,
+      required: true,
+    },
+    username: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
   },
-  username: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    required: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-});
+  { timestamps: true }
+);
 
 userSchema.set("toJSON", {
   transform: (document, returnedObj) => {
@@ -48,4 +42,6 @@ userSchema.set("toJSON", {
   },
 });
 
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+module.exports = User;
