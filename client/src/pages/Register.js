@@ -27,7 +27,7 @@ const Login = () => {
   const registerHandler = async (e) => {
     e.preventDefault();
     try {
-      const user = {
+      const userObj = {
         fullname,
         username,
         email,
@@ -39,7 +39,7 @@ const Login = () => {
       setEmail("");
       setPassword("");
 
-      return await userService.register(user);
+      return await userService.register(userObj);
     } catch (err) {
       console.log(err);
     }

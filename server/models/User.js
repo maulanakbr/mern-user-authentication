@@ -1,16 +1,4 @@
 const mongoose = require("mongoose");
-require("dotenv").config();
-
-const uri = process.env.MONGODB_URI;
-
-(async () => {
-  try {
-    await mongoose.connect(uri);
-    console.log("connected");
-  } catch (err) {
-    console.log(`There is an error ${err.message}`);
-  }
-})();
 
 const userSchema = new mongoose.Schema(
   {
@@ -25,10 +13,12 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      unique: true,
     },
     password: {
       type: String,
       required: true,
+      minLength: 6,
     },
   },
   { timestamps: true }
