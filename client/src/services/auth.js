@@ -1,7 +1,7 @@
 import axios from "axios";
 
 axios.defaults.withCredentials = true;
-const baseUrl = "http://localhost:3001/api";
+const baseUrl = "http://localhost:3001/api/auth";
 
 const createUser = async (db) => {
   const res = await axios

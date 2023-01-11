@@ -1,7 +1,7 @@
 const User = require("../models/User");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-require("dotenv").config();
+const ErrorResponses = require("../utils/errorResponses");
+const sendEmail = require("../utils/sendEmail");
+const crypto = require("crypto");
 
 const info = async (req, res, next) => {
   const date = new Date().toLocaleString();
@@ -21,115 +21,185 @@ const info = async (req, res, next) => {
 const signup = async (req, res, next) => {
   const { fullname, username, email, password } = req.body;
 
-  let takenEmail;
-  let takenUsername;
-
   try {
-    takenEmail = await User.findOne({ email: email });
-    takenUsername = await User.findOne({ username: username });
-  } catch (err) {
-    console.log(err);
-  }
+    const takenEmail = await User.findOne({ email: email });
+    const takenUsername = await User.findOne({ username: username });
 
-  if (takenEmail || takenUsername)
-    return res
-      .status(400)
-      .json({ message: "Username or email has already been taken" });
+    if (takenEmail || takenUsername) {
+      return next(
+        new ErrorResponses("Username or email has already been taken", 400)
+      );
+    }
 
-  if (password.length <= 6)
-    return res
-      .status(400)
-      .json({ message: "Password must be 6 or more characters" });
+    const user = new User({
+      fullname,
+      username,
+      email,
+      password,
+    });
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
-
-  const user = new User({
-    fullname,
-    username,
-    email,
-    password: hashedPassword,
-  });
-
-  try {
     await user.save();
-  } catch (err) {
-    console.log(err);
-  }
 
-  return res.status(201).json({ message: "Succesfully registered" });
+    sendToken(user, 201, res);
+  } catch (err) {
+    next(err);
+  }
 };
 
 const login = async (req, res, next) => {
   const { email, password } = req.body;
 
-  let existingUser;
+  if (!email || !password) {
+    return next(new ErrorResponses("Please provide email and password", 400));
+  }
 
   try {
-    existingUser = await User.findOne({ email: email });
-  } catch (err) {
-    console.log(err);
-  }
+    const existingUser = await User.findOne({ email }).select("+password");
 
-  if (!existingUser)
-    return res.status(400).json({
-      message: "User not found. Please sign up",
-    });
-
-  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password);
-
-  if (!isPasswordCorrect)
-    return res.status(400).json({ message: "Invalid password" });
-
-  const token = await jwt.sign(
-    {
-      id: existingUser.id,
-      fullname: existingUser.fullname,
-      username: existingUser.username,
-      email: existingUser.email,
-    },
-    process.env.JWT_SECRET_KEY,
-    { expiresIn: "45s" }
-  );
-
-  console.log("Generated token");
-
-  if (req.cookies[`${existingUser.id}`]) {
-    req.cookies[`${existingUser.id}`] = "";
-  }
-
-  res.cookie(String(existingUser.id), token, {
-    path: "/",
-    expires: new Date(Date.now() + 1000 * 30),
-    httpOnly: true,
-    sameSite: "lax",
-  });
-
-  return res
-    .status(200)
-    .json({ message: "Login successfully", user: existingUser, token });
-};
-
-const verifyToken = async (req, res, next) => {
-  //   const headers = await req.headers["authorization"];
-  //   const token = headers.split(" ")[1]; // [0: Bearer] [1: Token]
-  const cookies = await req.headers.cookie;
-  const token = cookies.split("=")[1]; // [0: Cookie] [1: Token]
-
-  if (!token) {
-    res.status(400).json({
-      message: "No token found",
-    });
-  }
-
-  await jwt.verify(String(token), process.env.JWT_SECRET_KEY, (err, user) => {
-    if (err) {
-      res.status(400).json({ message: "Invalid token" });
+    if (!existingUser) {
+      return next(new ErrorResponses("User not found. Please signup", 401));
     }
-    req.id = user.id;
-  });
 
-  next();
+    const isCorrectPassword = await existingUser.correctPassword(password);
+
+    if (!isCorrectPassword) {
+      return next(new ErrorResponses("Invalid credentials", 401));
+    }
+
+    sendToken(existingUser, 201, res);
+  } catch (err) {
+    next(err);
+  }
+
+  // const token = await jwt.sign(
+  //   {
+  //     id: existingUser.id,
+  //     fullname: existingUser.fullname,
+  //     username: existingUser.username,
+  //     email: existingUser.email,
+  //   },
+  //   process.env.JWT_SECRET_KEY,
+  //   { expiresIn: "45s" }
+  // );
+
+  // console.log("Generated token");
+
+  // if (req.cookies[`${existingUser.id}`]) {
+  //   req.cookies[`${existingUser.id}`] = "";
+  // }
+
+  // res.cookie(String(existingUser.id), token, {
+  //   path: "/",
+  //   expires: new Date(Date.now() + 1000 * 30),
+  //   httpOnly: true,
+  //   sameSite: "lax",
+  // });
+
+  // return res
+  //   .status(200)
+  //   .json({ message: "Login successfully", user: existingUser, token });
 };
+
+const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return next(new ErrorResponses("Email could not be sent", 404));
+    }
+
+    const resetToken = user.getResetPasswordToken();
+
+    await user.save();
+
+    const resetPassowordUrl = `http:localhost:3000/resetpassword/${resetToken}`;
+
+    const userMessage = `
+    <h1>You have requested a reset password</h1>
+    <p>Please visit this link to reset your password</p>
+    <a href=${resetPassowordUrl} clicktracking=off>${resetPassowordUrl}</a>
+    `;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Password reset request",
+        text: userMessage,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Email sent",
+      });
+    } catch (err) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+
+      await user.save();
+
+      return next(new ErrorResponses("Emaild could not be sent", 500));
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  const resetNewPasswordToken = crypto
+    .createHash("sha256")
+    .update(req.params.resetToken)
+    .digest("hex");
+
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: resetNewPasswordToken,
+      resetPasswordExpire: {
+        $gt: Date.now(),
+      },
+    });
+
+    if (!user) {
+      return next(new ErrorResponses("Invalid reset token", 400));
+    }
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Password reset success",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// const verifyToken = async (req, res, next) => {
+//   //   const headers = await req.headers["authorization"];
+//   //   const token = headers.split(" ")[1]; // [0: Bearer] [1: Token]
+//   const cookies = await req.headers.cookie;
+//   const token = cookies.split("=")[1]; // [0: Cookie] [1: Token]
+
+//   if (!token) {
+//     res.status(400).json({
+//       message: "No token found",
+//     });
+//   }
+
+//   await jwt.verify(String(token), process.env.JWT_SECRET_KEY, (err, user) => {
+//     if (err) {
+//       res.status(400).json({ message: "Invalid token" });
+//     }
+//     req.id = user.id;
+//   });
+
+//   next();
+// };
 
 const accessUser = async (req, res, next) => {
   const userId = req.id;
@@ -205,11 +275,20 @@ const logout = async (req, res, next) => {
   console.log("Session ended");
 };
 
+const sendToken = (user, status, res) => {
+  const token = user.createToken();
+  res.status(status).json({
+    success: true,
+    token,
+  });
+};
+
 module.exports = {
   info,
   signup,
   login,
-  verifyToken,
+  forgotPassword,
+  resetPassword,
   accessUser,
   refreshToken,
   logout,
