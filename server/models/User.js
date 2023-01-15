@@ -19,7 +19,7 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       match: [
         /^((?!\.)[\w-_.]*[^.])(@\w+)(\.\w+(\.\w+)?[^.\W])$/gim,
-        "Please provide a valid email",
+        "Please enter a valid email address",
       ],
     },
     password: {
@@ -79,7 +79,7 @@ UserSchema.methods.getResetPasswordToken = function () {
     .update(resetToken)
     .digest("hex");
 
-  console.log(resetToken);
+  // console.log(resetToken);
 
   this.resetPasswordExpire = Date.now() + 10 * (60 * 1000);
 

@@ -24,9 +24,10 @@ exports.verifyToken = async (req, res, next) => {
       return next(new ErrorResponses("No user found with selected id", 400));
     }
 
-    req.user = user;
+    req.id = user.id;
     next();
   } catch (err) {
+    console.log(err);
     return next(new ErrorResponses("Not authorized to access this route", 404));
   }
 };

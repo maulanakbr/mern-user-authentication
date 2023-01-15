@@ -18,6 +18,20 @@ const info = async (req, res, next) => {
   }
 };
 
+const dashboard = async (req, res, next) => {
+  try {
+    const user = await User.find({});
+
+    if (user.length === 0) {
+      return next(new ErrorResponses("Could not find any data", 400));
+    }
+
+    res.send(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const signup = async (req, res, next) => {
   const { fullname, username, email, password } = req.body;
 
@@ -46,58 +60,32 @@ const signup = async (req, res, next) => {
   }
 };
 
-const login = async (req, res, next) => {
+const signin = async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return next(new ErrorResponses("Please provide email and password", 400));
+    return next(new ErrorResponses("Email and password is required", 400));
   }
 
   try {
     const existingUser = await User.findOne({ email }).select("+password");
 
     if (!existingUser) {
-      return next(new ErrorResponses("User not found. Please signup", 401));
+      return next(
+        new ErrorResponses("User not found. Create new account", 401)
+      );
     }
 
     const isCorrectPassword = await existingUser.correctPassword(password);
 
     if (!isCorrectPassword) {
-      return next(new ErrorResponses("Invalid credentials", 401));
+      return next(new ErrorResponses("Invalid password", 401));
     }
 
     sendToken(existingUser, 201, res);
   } catch (err) {
     next(err);
   }
-
-  // const token = await jwt.sign(
-  //   {
-  //     id: existingUser.id,
-  //     fullname: existingUser.fullname,
-  //     username: existingUser.username,
-  //     email: existingUser.email,
-  //   },
-  //   process.env.JWT_SECRET_KEY,
-  //   { expiresIn: "45s" }
-  // );
-
-  // console.log("Generated token");
-
-  // if (req.cookies[`${existingUser.id}`]) {
-  //   req.cookies[`${existingUser.id}`] = "";
-  // }
-
-  // res.cookie(String(existingUser.id), token, {
-  //   path: "/",
-  //   expires: new Date(Date.now() + 1000 * 30),
-  //   httpOnly: true,
-  //   sameSite: "lax",
-  // });
-
-  // return res
-  //   .status(200)
-  //   .json({ message: "Login successfully", user: existingUser, token });
 };
 
 const forgotPassword = async (req, res, next) => {
@@ -105,6 +93,8 @@ const forgotPassword = async (req, res, next) => {
 
   try {
     const user = await User.findOne({ email });
+
+    console.log(user);
 
     if (!user) {
       return next(new ErrorResponses("Email could not be sent", 404));
@@ -179,100 +169,20 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-// const verifyToken = async (req, res, next) => {
-//   //   const headers = await req.headers["authorization"];
-//   //   const token = headers.split(" ")[1]; // [0: Bearer] [1: Token]
-//   const cookies = await req.headers.cookie;
-//   const token = cookies.split("=")[1]; // [0: Cookie] [1: Token]
-
-//   if (!token) {
-//     res.status(400).json({
-//       message: "No token found",
-//     });
-//   }
-
-//   await jwt.verify(String(token), process.env.JWT_SECRET_KEY, (err, user) => {
-//     if (err) {
-//       res.status(400).json({ message: "Invalid token" });
-//     }
-//     req.id = user.id;
-//   });
-
-//   next();
-// };
-
-const accessUser = async (req, res, next) => {
+const userData = async (req, res, next) => {
   const userId = req.id;
 
-  let user;
-
   try {
-    user = await User.findById(userId, "-password");
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return next(new ErrorResponses("Could not find user data", 400));
+    }
+
+    res.status(200).json({ user });
   } catch (err) {
-    console.log(err);
+    next(err);
   }
-
-  if (!user) {
-    res.status(404).json({ message: "User not found" });
-  }
-
-  return res.status(200).json({ user });
-};
-
-const refreshToken = async (req, res, next) => {
-  const cookies = await req.headers.cookie;
-  const prevToken = cookies.split("=")[1]; // [0: Cookie] [1: Token]
-
-  if (!prevToken) {
-    res.status(404).json({ message: "Could not provide any token" });
-  }
-
-  jwt.verify(String(prevToken), process.env.JWT_SECRET_KEY, (err, user) => {
-    if (err) {
-      res.status(404).json({ message: "Authentication failed" });
-    }
-
-    res.clearCookie(`${user.id}`);
-    req.cookies[`${user.id}`] = "";
-
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET_KEY, {
-      expiresIn: "45s",
-    });
-
-    console.log("Regenerated token");
-
-    res.cookie(String(user.id), token, {
-      path: "/",
-      expires: new Date(Date.now() + 1000 * 30),
-      httpOnly: true,
-      sameSite: "lax",
-    });
-
-    req.id = user.id;
-    next();
-  });
-};
-
-const logout = async (req, res, next) => {
-  const cookies = await req.headers.cookie;
-  const prevToken = cookies.split("=")[1]; // [0: Cookie] [1: Token]
-
-  if (!prevToken) {
-    res.status(404).json({ message: "Could not provide any token" });
-  }
-
-  jwt.verify(String(prevToken), process.env.JWT_SECRET_KEY, (err, user) => {
-    if (err) {
-      res.status(404).json({ message: "Authentication failed" });
-    }
-
-    res.clearCookie(`${user.id}`);
-    req.cookies[`${user.id}`] = "";
-
-    return res.status(200).json({ message: "Logout successfully" });
-  });
-
-  console.log("Session ended");
 };
 
 const sendToken = (user, status, res) => {
@@ -285,11 +195,10 @@ const sendToken = (user, status, res) => {
 
 module.exports = {
   info,
+  dashboard,
   signup,
-  login,
+  signin,
   forgotPassword,
   resetPassword,
-  accessUser,
-  refreshToken,
-  logout,
+  userData,
 };

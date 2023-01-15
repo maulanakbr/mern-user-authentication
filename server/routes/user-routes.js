@@ -1,24 +1,22 @@
 const express = require("express");
 const {
   info,
+  dashboard,
   signup,
-  login,
+  signin,
   forgotPassword,
   resetPassword,
-  accessUser,
-  refreshToken,
-  logout,
+  userData,
 } = require("../controllers/user-controller");
 const { verifyToken } = require("../middleware/authCheck");
 const router = express.Router();
 
 router.get("/", info);
+router.get("/dashboard", dashboard);
 router.post("/signup", signup);
-router.post("/login", login);
+router.post("/signin", signin);
 router.post("/forgotpassword", forgotPassword);
 router.put("/resetpassword/:resetToken", resetPassword);
-router.get("/user", verifyToken, accessUser);
-router.get("/refresh", refreshToken, verifyToken, accessUser);
-router.post("/logout", verifyToken, logout);
+router.get("/user", verifyToken, userData);
 
 module.exports = router;

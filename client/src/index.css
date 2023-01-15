@@ -1,3 +1,33 @@
-* {
-  margin: 0;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white-bone-white;
+  }
+
+  h1 {
+    @apply text-[67px];
+  }
+
+  h2 {
+    @apply text-[50px];
+  }
+
+  h3 {
+    @apply text-[37px];
+  }
+
+  h4 {
+    @apply text-[28px];
+  }
+
+  h5 {
+    @apply text-[21px];
+  }
+
+  p {
+    @apply text-[16px];
+  }
 }

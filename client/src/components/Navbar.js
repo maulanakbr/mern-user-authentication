@@ -1,54 +1,46 @@
-import React, { useState } from "react";
-import { AppBar, Box, Tab, Tabs, Toolbar, Typography } from "@mui/material";
-import { Link } from "react-router-dom";
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { signOut } from "../features/authSlice";
 import { useDispatch, useSelector } from "react-redux";
-import authService from "../services/auth";
-import axios from "axios";
-import { authActions } from "../store";
-
-axios.defaults.withCredentials = true;
 
 const Navbar = () => {
-  const [value, setValue] = useState(0);
-  const isLoggedIn = useSelector((state) => state.isLoggedIn);
+  const auth = useSelector((state) => state.auth.value);
 
+  const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  const userToken = localStorage.getItem("authToken");
+
   const handleLogout = () => {
-    authService.logout().then(() => dispatch(authActions.logout()));
+    localStorage.clear(userToken);
+    navigate("/");
+    dispatch(signOut());
   };
 
   return (
-    <div>
-      <AppBar position="sticky">
-        <Toolbar>
-          <Typography variant="h3">AUTH</Typography>
-          <Box sx={{ marginLeft: "auto" }}>
-            <Tabs
-              indicatorColor="secondary"
-              onChange={(e, val) => setValue(val)}
-              textColor="inherit"
-              value={value}
-            >
-              <Tab to="/" LinkComponent={Link} label="Home" />
-              {!isLoggedIn && (
-                <>
-                  <Tab to="/signup" LinkComponent={Link} label="Signup" />
-                  <Tab to="/login" LinkComponent={Link} label="Login" />
-                </>
-              )}
-              {isLoggedIn && (
-                <Tab
-                  onClick={handleLogout}
-                  to="/"
-                  LinkComponent={Link}
-                  label="Logout"
-                />
-              )}
-            </Tabs>
-          </Box>
-        </Toolbar>
-      </AppBar>
+    <div className="relative flex w-full justify-center">
+      <div className="fixed my-4 flex w-[70%] items-center justify-between border-b-[1.5px] text-[13px] font-normal tracking-wider text-black-licorice">
+        <h4 className="my-1 cursor-pointer font-bold">MAY</h4>
+        <ul className="my-1 flex cursor-pointer justify-end gap-12">
+          {!auth && (
+            <>
+              <li className="p-2">
+                <Link to="/">Sign In</Link>
+              </li>
+              <li className="p-2">
+                <Link to="/signup">Sign Up</Link>
+              </li>
+            </>
+          )}
+          {auth && (
+            <>
+              <li className="p-2" onClick={handleLogout}>
+                Logout
+              </li>
+            </>
+          )}
+        </ul>
+      </div>
     </div>
   );
 };

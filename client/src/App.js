@@ -1,31 +1,32 @@
-import React from "react";
-import { Route, Routes } from "react-router-dom";
-import "./App.css";
-import Navbar from "./components/Navbar";
-import Login from "./pages/Login";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Signin from "./pages/Signin";
 import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
-import Home from "./pages/Home";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Profile from "./pages/Profile";
+import Navbar from "./components/Navbar";
 import { useSelector } from "react-redux";
 
-function App() {
-  const isLoggedIn = useSelector((state) => state.isLoggedIn);
+const App = () => {
+  const auth = useSelector((state) => state.auth.value);
 
   return (
-    <React.Fragment>
-      <header>
+    <BrowserRouter>
+      <div>
         <Navbar />
-      </header>
-      <main>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Signin />} />
           <Route path="/signup" element={<Signup />} />
-          {isLoggedIn && <Route path="/dashboard" element={<Dashboard />} />}
+          {auth && <Route path="/profile" element={<Profile />} />}
+          <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route
+            path="/resetpassword/:resetToken"
+            element={<ResetPassword />}
+          />
         </Routes>
-      </main>
-    </React.Fragment>
+      </div>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
